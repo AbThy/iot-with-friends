@@ -37,26 +37,36 @@
 
 #include <SPI.h>
 #include <MFRC522.h>
+#include <LiquidCrystal_I2C.h>
+
 
 #define RST_PIN         9          // Configurable, see typical pin layout above
 #define SS_PIN          10         // Configurable, see typical pin layout above
+#define UID_LENGTH 10
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
+LiquidCrystal_I2C lcd(0x27, 16, 2); // 16x2-es LCD, I2C cím: 0x27
 
-#define UID_LENGTH 10
+
 
 byte lastUID[UID_LENGTH];
 char ascii[UID_LENGTH * 2 + 1];
 byte uidLength = 0;
 
 void setup() {
-	Serial.begin(9600);		// Initialize serial communications with the PC
+  lcd.init();
+  lcd.backlight();
+  lcd.print("Starting up...");
+  Serial.begin(9600);		// Initialize serial communications with the PC
 	while (!Serial);		// Do nothing if no serial port is opened (added for Arduinos based on ATMEGA32U4)
 	SPI.begin();			// Init SPI bus
 	mfrc522.PCD_Init();		// Init MFRC522
-	delay(4);				// Optional delay. Some board do need more time after init to be ready, see Readme
+	delay(700);				// Optional delay. Some board do need more time after init to be ready, see Readme
 	mfrc522.PCD_DumpVersionToSerial();	// Show details of PCD - MFRC522 Card Reader details
 	Serial.println(F("Scan PICC to see UID, SAK, type, and data blocks..."));
+  lcd.clear();
+  lcd.print("Waiting for card");
+  delay(300);
 }
 
 void loop() {
@@ -69,7 +79,7 @@ void loop() {
 	if ( ! mfrc522.PICC_ReadCardSerial()) {
 		return;
 	}
-
+  lcd.clear();
 	// Copy the UID to the global variable
   uidLength = mfrc522.uid.size;  // Store UID length  
   int index = 0;
@@ -78,11 +88,20 @@ void loop() {
       index += sprintf(&ascii[index], "%X", lastUID[i]);
       index += sprintf(&ascii[index], " ");
   }
+  ascii[index] = '\0'; //záró karakter
 
   // Print the UID to the Serial Monitor
   Serial.print("Last read UID: ");
   Serial.println(ascii);
 
+  lcd.setCursor(0, 0); // Kurzor pozicionálása az első sor elejére
+  lcd.print("UID: ");
+  lcd.setCursor(5, 0); // Kurzor pozicionálása az első sor 5. pozíciójára
+  lcd.print(ascii);    // Kiírás az LCD-re
+
+  delay(2000);
+  lcd.clear();
+  lcd.print("Waiting for card");
   // Halt PICC and stop encryption on PCD
   mfrc522.PICC_HaltA();
   mfrc522.PCD_StopCrypto1();
